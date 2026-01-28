@@ -6,6 +6,7 @@ Jabref is a bibliography reference manager that uses BibTeX format.
 """
 
 import json
+import re
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 
@@ -18,10 +19,6 @@ class JabrefLoader:
     relevant information for RAG evaluation, including abstracts, notes,
     and other fields that can serve as context or queries.
     """
-    
-    def __init__(self):
-        """Initialize the Jabref loader."""
-        pass
     
     def load(self, file_path: str) -> List[Dict[str, Any]]:
         """
@@ -60,8 +57,6 @@ class JabrefLoader:
             content = f.read()
         
         # Simple BibTeX parser (can be enhanced with bibtexparser library)
-        import re
-        
         # Find all entries
         entry_pattern = r'@(\w+)\{([^,]+),\s*(.*?)\n\}'
         matches = re.finditer(entry_pattern, content, re.DOTALL)

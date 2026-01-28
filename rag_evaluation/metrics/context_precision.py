@@ -6,8 +6,33 @@ the correct ground truth context, as opposed to irrelevant or incorrect
 context.
 """
 
+import re
 from typing import Dict, Any, Set
 from . import BaseMetric
+from .utils import STOP_WORDS
+
+
+def extract_key_terms(text: str) -> Set[str]:
+    """
+    Extract key terms from text by removing stop words and punctuation.
+    
+    Args:
+        text: Input text
+        
+    Returns:
+        Set of key terms
+    """
+    # Convert to lowercase and remove punctuation
+    text_lower = text.lower()
+    text_clean = re.sub(r'[^\w\s]', ' ', text_lower)
+    
+    # Split into words
+    words = text_clean.split()
+    
+    # Filter stop words and short words
+    key_terms = {word for word in words if word not in STOP_WORDS and len(word) > 2}
+    
+    return key_terms
 
 
 class ContextPrecisionMetric(BaseMetric):
@@ -22,10 +47,6 @@ class ContextPrecisionMetric(BaseMetric):
     - 1.0 indicates answer is fully based on ground truth context
     - 0.0 indicates answer has no overlap with ground truth context
     """
-    
-    def __init__(self):
-        """Initialize the context precision metric."""
-        pass
     
     def compute(self, answer: str, context: str, ground_truth: str) -> Dict[str, Any]:
         """
@@ -42,9 +63,9 @@ class ContextPrecisionMetric(BaseMetric):
                 - details: Additional information about the evaluation
         """
         # Extract key terms from each text
-        answer_terms = self._extract_key_terms(answer)
-        ground_truth_terms = self._extract_key_terms(ground_truth)
-        context_terms = self._extract_key_terms(context)
+        answer_terms = extract_key_terms(answer)
+        ground_truth_terms = extract_key_terms(ground_truth)
+        context_terms = extract_key_terms(context)
         
         if not answer_terms:
             return {
@@ -79,38 +100,3 @@ class ContextPrecisionMetric(BaseMetric):
                 'reasoning': f'{len(answer_gt_overlap)} out of {len(answer_terms)} answer terms found in ground truth'
             }
         }
-    
-    def _extract_key_terms(self, text: str) -> Set[str]:
-        """
-        Extract key terms from text by removing stop words and punctuation.
-        
-        Args:
-            text: Input text
-            
-        Returns:
-            Set of key terms
-        """
-        import re
-        
-        # Convert to lowercase and remove punctuation
-        text_lower = text.lower()
-        text_clean = re.sub(r'[^\w\s]', ' ', text_lower)
-        
-        # Split into words
-        words = text_clean.split()
-        
-        # Remove stop words
-        stop_words = {
-            'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 
-            'to', 'for', 'of', 'with', 'by', 'from', 'is', 'are', 
-            'was', 'were', 'be', 'been', 'being', 'this', 'that',
-            'these', 'those', 'it', 'its', 'they', 'their', 'have',
-            'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-            'should', 'may', 'might', 'can', 'which', 'who', 'what',
-            'where', 'when', 'why', 'how'
-        }
-        
-        # Filter stop words and short words
-        key_terms = {word for word in words if word not in stop_words and len(word) > 2}
-        
-        return key_terms

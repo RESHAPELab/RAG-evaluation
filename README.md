@@ -240,7 +240,7 @@ If you use this framework in your research, please cite:
 @software{rag_evaluation,
   title={RAG Evaluation Framework},
   author={RESHAPELab},
-  year={2024},
+  year={2026},
   url={https://github.com/RESHAPELab/RAG-evaluation}
 }
 ```

@@ -6,8 +6,10 @@ and not hallucinated. This metric checks if claims in the answer can be
 verified from the context.
 """
 
+import re
 from typing import Dict, List, Any
 from . import BaseMetric
+from .utils import STOP_WORDS, FAITHFULNESS_SUPPORT_THRESHOLD
 
 
 class FaithfulnessMetric(BaseMetric):
@@ -22,10 +24,6 @@ class FaithfulnessMetric(BaseMetric):
     - 1.0 indicates all statements are supported by context
     - 0.0 indicates no statements are supported by context
     """
-    
-    def __init__(self):
-        """Initialize the faithfulness metric."""
-        pass
     
     def compute(self, answer: str, context: str) -> Dict[str, Any]:
         """
@@ -88,7 +86,6 @@ class FaithfulnessMetric(BaseMetric):
             List of sentences
         """
         # Simple sentence splitting (can be enhanced with NLP libraries)
-        import re
         sentences = re.split(r'[.!?]+', text)
         sentences = [s.strip() for s in sentences if s.strip()]
         return sentences
@@ -108,14 +105,9 @@ class FaithfulnessMetric(BaseMetric):
             True if sentence appears supported by context
         """
         # Extract key terms from sentence (remove common words)
-        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 
-                     'to', 'for', 'of', 'with', 'by', 'from', 'is', 'are', 
-                     'was', 'were', 'be', 'been', 'being', 'this', 'that',
-                     'these', 'those', 'it', 'its', 'they', 'their'}
-        
         sentence_lower = sentence.lower()
         words = sentence_lower.split()
-        key_words = [w for w in words if w not in stop_words and len(w) > 2]
+        key_words = [w for w in words if w not in STOP_WORDS and len(w) > 2]
         
         # Check if majority of key words appear in context
         if not key_words:
@@ -123,5 +115,5 @@ class FaithfulnessMetric(BaseMetric):
         
         found_count = sum(1 for word in key_words if word in context_lower)
         
-        # Consider supported if >50% of key words are in context
-        return found_count / len(key_words) > 0.5
+        # Consider supported if threshold % of key words are in context
+        return found_count / len(key_words) > FAITHFULNESS_SUPPORT_THRESHOLD

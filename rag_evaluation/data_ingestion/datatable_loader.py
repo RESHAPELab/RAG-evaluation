@@ -19,10 +19,6 @@ class DataTableLoader:
     and ground truth.
     """
     
-    def __init__(self):
-        """Initialize the DataTable loader."""
-        pass
-    
     def load(self, file_path: str, format: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Load data from a tabular file.
