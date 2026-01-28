@@ -1,5 +1,5 @@
-# Core dependencies (no external dependencies required for basic functionality)
-# The framework uses only Python standard library
+# Core dependencies
+ragas>=0.1.0  # For advanced RAG evaluation metrics
 
 # Optional dependencies for enhanced functionality:
 # openpyxl>=3.0.0  # For Excel file support
