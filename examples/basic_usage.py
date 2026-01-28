@@ -4,6 +4,12 @@ Example usage of the RAG Evaluation Framework
 This script demonstrates how to use the framework to evaluate RAG models.
 """
 
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from rag_evaluation import RAGEvaluator
 from rag_evaluation.data_ingestion import JabrefLoader, DataTableLoader
 
