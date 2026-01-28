@@ -43,7 +43,7 @@ class RagasEvaluator:
         ... )
     """
     
-    def __init__(self, metrics: Optional[List[str]] = None):
+    def __init__(self, metrics: Optional[List[str]] = None, llm=None):
         """
         Initialize the Ragas evaluator with specified metrics.
         
@@ -51,6 +51,7 @@ class RagasEvaluator:
             metrics: List of metric names to use. If None, uses all metrics.
                     Options: ['faithfulness', 'answer_relevancy', 
                              'context_precision', 'context_recall']
+            llm: Optional LLM instance to use for evaluation. If None, uses default.
         
         Raises:
             ImportError: If ragas library is not installed
@@ -69,25 +70,47 @@ class RagasEvaluator:
                 "Get your API key from https://platform.openai.com/api-keys"
             )
         
-        # Map metric names to ragas metric classes
-        self.available_metrics = {
-            'faithfulness': Faithfulness(),
-            'answer_relevancy': AnswerRelevancy(),
-            'context_precision': ContextPrecision(),
-            'context_recall': ContextRecall()
-        }
+        # Store metric names for validation
+        self.available_metric_names = [
+            'faithfulness',
+            'answer_relevancy',
+            'context_precision',
+            'context_recall'
+        ]
         
         if metrics is None:
-            self.metric_names = list(self.available_metrics.keys())
+            self.metric_names = self.available_metric_names
         else:
+            # Validate metric names
+            invalid_metrics = [m for m in metrics if m not in self.available_metric_names]
+            if invalid_metrics:
+                raise ValueError(
+                    f"Invalid metric names: {invalid_metrics}. "
+                    f"Valid options are: {self.available_metric_names}"
+                )
             self.metric_names = metrics
         
-        # Get the actual metric objects
-        self.metrics = [
-            self.available_metrics[name] 
-            for name in self.metric_names 
-            if name in self.available_metrics
+        # Store LLM for later use
+        self.llm = llm
+        
+    def _get_metrics(self):
+        """Get metric instances. Created on demand to avoid issues with LLM initialization."""
+        # Map metric names to ragas metric classes
+        # Note: metrics are created without llm parameter - ragas will use default
+        available_metrics = {
+            'faithfulness': Faithfulness,
+            'answer_relevancy': AnswerRelevancy,
+            'context_precision': ContextPrecision,
+            'context_recall': ContextRecall
+        }
+        
+        # Get the actual metric objects (instances, not classes)
+        metrics = [
+            available_metrics[name]() if self.llm is None else available_metrics[name](llm=self.llm)
+            for name in self.metric_names
         ]
+        
+        return metrics
     
     def evaluate(
         self,
@@ -122,11 +145,14 @@ class RagasEvaluator:
         # Create dataset with single sample
         dataset = EvaluationDataset(samples=[sample])
         
+        # Get metrics
+        metrics = self._get_metrics()
+        
         # Evaluate using ragas
         # Set show_progress=False for single evaluations
         result = evaluate(
             dataset=dataset,
-            metrics=self.metrics,
+            metrics=metrics,
             show_progress=False,
             raise_exceptions=True
         )
@@ -173,9 +199,23 @@ class RagasEvaluator:
             
         Returns:
             List of evaluation results for each example
+        
+        Raises:
+            ValueError: If input lists have different lengths
         """
+        # Validate input lengths
+        if not (len(queries) == len(contexts) == len(answers)):
+            raise ValueError(
+                f"Input lists must have the same length. "
+                f"Got queries={len(queries)}, contexts={len(contexts)}, answers={len(answers)}"
+            )
+        
         if ground_truths is None:
             ground_truths = [None] * len(queries)
+        elif len(ground_truths) != len(queries):
+            raise ValueError(
+                f"ground_truths length ({len(ground_truths)}) must match queries length ({len(queries)})"
+            )
         
         # Create ragas samples
         samples = []
@@ -194,10 +234,13 @@ class RagasEvaluator:
         # Create dataset
         dataset = EvaluationDataset(samples=samples)
         
+        # Get metrics
+        metrics = self._get_metrics()
+        
         # Evaluate using ragas
         result = evaluate(
             dataset=dataset,
-            metrics=self.metrics,
+            metrics=metrics,
             show_progress=True,
             raise_exceptions=True
         )

@@ -14,15 +14,21 @@ from .metrics.relevance import RelevanceMetric
 try:
     from .ragas_evaluator import RagasEvaluator
     _RAGAS_AVAILABLE = True
+    __all__ = [
+        "RAGEvaluator",
+        "FaithfulnessMetric",
+        "ContextPrecisionMetric",
+        "RelevanceMetric",
+        "RagasEvaluator",
+    ]
 except ImportError:
     _RAGAS_AVAILABLE = False
-    RagasEvaluator = None
+    # Don't export RagasEvaluator if not available
+    __all__ = [
+        "RAGEvaluator",
+        "FaithfulnessMetric",
+        "ContextPrecisionMetric",
+        "RelevanceMetric",
+    ]
 
 __version__ = "0.1.0"
-__all__ = [
-    "RAGEvaluator",
-    "FaithfulnessMetric",
-    "ContextPrecisionMetric",
-    "RelevanceMetric",
-    "RagasEvaluator",
-]

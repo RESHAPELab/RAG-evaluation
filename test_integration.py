@@ -4,7 +4,8 @@ Simple test to verify ragas integration
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add the repository root to path
+sys.path.insert(0, str(Path(__file__).parent))
 
 def test_import():
     """Test that RagasEvaluator can be imported"""
