@@ -1,13 +1,20 @@
 # RAG Evaluation Framework
 
-A comprehensive framework for evaluating Retrieval-Augmented Generation (RAG) models using multiple metrics including faithfulness, context precision, and relevance.
+A comprehensive framework for evaluating Retrieval-Augmented Generation (RAG) models using multiple evaluation approaches: rule-based metrics and advanced LLM-based metrics via the ragas library.
 
 ## Features
 
-- **Multiple Evaluation Metrics**:
-  - **Faithfulness**: Checks if the answer is grounded in the provided context rather than hallucinated
-  - **Context Precision**: Measures how much of the answer comes from the ground truth context
-  - **Relevance**: Checks if the generated response is relevant to the query and context
+- **Multiple Evaluation Backends**:
+  - **Basic Evaluator**: Rule-based metrics (no external dependencies)
+    - **Faithfulness**: Checks if the answer is grounded in the provided context rather than hallucinated
+    - **Context Precision**: Measures how much of the answer comes from the ground truth context
+    - **Relevance**: Checks if the generated response is relevant to the query and context
+  
+  - **Ragas Evaluator**: Advanced LLM-based metrics (requires ragas library and OpenAI API key)
+    - **Faithfulness**: Measures factual consistency of the answer with the context
+    - **Answer Relevancy**: Measures how relevant the answer is to the query
+    - **Context Precision**: Measures how relevant the retrieved context is
+    - **Context Recall**: Measures if all relevant information is retrieved
 
 - **Data Ingestion Support**:
   - Jabref (BibTeX) format
@@ -25,21 +32,48 @@ A comprehensive framework for evaluating Retrieval-Augmented Generation (RAG) mo
 git clone https://github.com/RESHAPELab/RAG-evaluation.git
 cd RAG-evaluation
 
-# No external dependencies required for basic functionality
-# Optional dependencies can be installed for enhanced features:
+# Install dependencies (for ragas support)
+pip install -r requirements.txt
+
+# Optional dependencies for enhanced features:
 # pip install openpyxl  # For Excel support
 # pip install bibtexparser  # For advanced BibTeX parsing
 ```
 
 ## Quick Start
 
-### Single Evaluation
+### Basic Evaluator (Rule-based, No API Key Required)
 
 ```python
 from rag_evaluation import RAGEvaluator
 
 # Initialize evaluator
 evaluator = RAGEvaluator()
+
+# Evaluate a single output
+results = evaluator.evaluate(
+    query="What is machine learning?",
+    context="Machine learning is a subset of AI that enables systems to learn...",
+    answer="Machine learning allows computers to learn from data...",
+    ground_truth="Machine learning is a subset of AI..."
+)
+
+print(results)
+```
+
+### Ragas Evaluator (LLM-based, Requires OpenAI API Key)
+
+The ragas evaluator provides more sophisticated LLM-based evaluation metrics. Set your OpenAI API key first:
+
+```bash
+export OPENAI_API_KEY='your-api-key-here'
+```
+
+```python
+from rag_evaluation import RagasEvaluator
+
+# Initialize ragas evaluator
+evaluator = RagasEvaluator()
 
 # Evaluate a single output
 results = evaluator.evaluate(
@@ -94,29 +128,54 @@ results = evaluator.evaluate_batch(**data)
 
 ## Evaluation Metrics
 
-### Faithfulness
+### Basic Evaluator Metrics (Rule-based)
+
+#### Faithfulness
 
 Evaluates whether the generated answer is grounded in the provided context and not hallucinated. 
 
 - **Score Range**: 0.0 to 1.0
 - **1.0**: All statements are supported by context
 - **0.0**: No statements are supported by context
+- **Approach**: Keyword-based analysis
 
-### Context Precision
+#### Context Precision
 
 Measures how much of the information in the answer comes from the ground truth context.
 
 - **Score Range**: 0.0 to 1.0
 - **1.0**: Answer is fully based on ground truth
 - **0.0**: Answer has no overlap with ground truth
+- **Approach**: Term overlap analysis
 
-### Relevance
+#### Relevance
 
 Checks if the generated response is relevant to both the query and the provided context.
 
 - **Score Range**: 0.0 to 1.0
 - **1.0**: Highly relevant answer
 - **0.0**: Completely irrelevant answer
+- **Approach**: Weighted term matching
+
+### Ragas Evaluator Metrics (LLM-based)
+
+The ragas evaluator uses advanced LLM-based evaluation for more nuanced assessments:
+
+#### Faithfulness
+- Uses LLM to verify factual consistency between answer and context
+- More accurate detection of hallucinations
+
+#### Answer Relevancy
+- Evaluates how well the answer addresses the user's query
+- Considers semantic similarity, not just keyword matching
+
+#### Context Precision
+- Measures how relevant the retrieved context is to the query
+- Helps evaluate retrieval quality
+
+#### Context Recall
+- Checks if all relevant information needed to answer the query is in the retrieved context
+- Identifies gaps in retrieval
 
 ## Data Format
 
@@ -154,7 +213,9 @@ query,context,answer,ground_truth
 
 Check the `examples/` directory for complete usage examples:
 
-- `examples/basic_usage.py`: Comprehensive examples of all features
+- `examples/basic_usage.py`: Comprehensive examples of basic evaluator
+- `examples/ragas_usage.py`: Examples using ragas evaluator with LLM-based metrics
+- `examples/evaluate.py`: Command-line evaluation tool
 - `examples/sample_data.json`: Sample JSON data
 - `examples/sample_data.csv`: Sample CSV data
 - `examples/sample_data.bib`: Sample BibTeX data
@@ -164,6 +225,10 @@ Run the examples:
 ```bash
 cd examples
 python basic_usage.py
+
+# For ragas examples (requires OpenAI API key)
+export OPENAI_API_KEY='your-key-here'
+python ragas_usage.py
 ```
 
 ## Project Structure
@@ -171,7 +236,8 @@ python basic_usage.py
 ```
 rag_evaluation/
 ├── __init__.py           # Main package exports
-├── evaluator.py          # RAGEvaluator class
+├── evaluator.py          # RAGEvaluator class (basic, rule-based)
+├── ragas_evaluator.py    # RagasEvaluator class (LLM-based)
 ├── metrics/
 │   ├── __init__.py
 │   ├── faithfulness.py   # Faithfulness metric
@@ -188,16 +254,31 @@ rag_evaluation/
 You can select specific metrics to use:
 
 ```python
-# Only use faithfulness and relevance
+# Basic evaluator with specific metrics
 evaluator = RAGEvaluator(metrics=['faithfulness', 'relevance'])
 results = evaluator.evaluate(query, context, answer)
+
+# Ragas evaluator with specific metrics
+ragas_evaluator = RagasEvaluator(metrics=['faithfulness', 'answer_relevancy'])
+results = ragas_evaluator.evaluate(query, context, answer)
 ```
 
 ## API Reference
 
-### RAGEvaluator
+### RAGEvaluator (Basic, Rule-based)
 
-Main class for evaluating RAG models.
+Main class for evaluating RAG models using rule-based metrics.
+
+**Methods**:
+- `evaluate(query, context, answer, ground_truth=None)`: Evaluate a single output
+- `evaluate_batch(queries, contexts, answers, ground_truths=None)`: Evaluate multiple outputs
+- `get_average_scores(batch_results)`: Calculate average scores from batch results
+
+### RagasEvaluator (LLM-based)
+
+Evaluator using the ragas library for LLM-based evaluation metrics.
+
+**Requirements**: OpenAI API key (set OPENAI_API_KEY environment variable)
 
 **Methods**:
 - `evaluate(query, context, answer, ground_truth=None)`: Evaluate a single output
