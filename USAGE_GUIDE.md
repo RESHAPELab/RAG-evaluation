@@ -1,33 +1,35 @@
 # Usage Guide for RAG Evaluation Framework
 
-This guide provides detailed instructions on how to use the RAG Evaluation Framework to evaluate your RAG models.
+This guide provides detailed instructions on how to use the RAG Evaluation Framework to evaluate your RAG models using both rule-based and advanced LLM-based metrics.
 
 ## Table of Contents
 
 1. [Quick Start](#quick-start)
-2. [Evaluation Metrics](#evaluation-metrics)
-3. [Data Preparation](#data-preparation)
-4. [Using the Framework](#using-the-framework)
-5. [Command-Line Tool](#command-line-tool)
-6. [Interpreting Results](#interpreting-results)
+2. [Choosing an Evaluator](#choosing-an-evaluator)
+3. [Evaluation Metrics](#evaluation-metrics)
+4. [Data Preparation](#data-preparation)
+5. [Using the Framework](#using-the-framework)
+6. [Command-Line Tool](#command-line-tool)
+7. [Interpreting Results](#interpreting-results)
 
 ## Quick Start
 
 ### Installation
 
-The framework requires only Python 3.6+ with no external dependencies for basic functionality:
-
 ```bash
 git clone https://github.com/RESHAPELab/RAG-evaluation.git
 cd RAG-evaluation
-```
 
-For optional features (Excel support), install:
-```bash
+# Install dependencies (includes ragas for LLM-based evaluation)
+pip install -r requirements.txt
+
+# For optional features (Excel support):
 pip install openpyxl
 ```
 
-### Basic Usage
+### Basic Usage (Rule-based Evaluator)
+
+The basic evaluator requires no external API keys and uses rule-based metrics:
 
 ```python
 from rag_evaluation import RAGEvaluator
@@ -44,9 +46,75 @@ results = evaluator.evaluate(
 print(results)
 ```
 
+### Advanced Usage (Ragas Evaluator)
+
+The ragas evaluator provides LLM-based metrics for more sophisticated evaluation. Requires an OpenAI API key:
+
+```bash
+export OPENAI_API_KEY='your-api-key-here'
+```
+
+```python
+from rag_evaluation import RagasEvaluator
+
+evaluator = RagasEvaluator()
+
+results = evaluator.evaluate(
+    query="What is machine learning?",
+    context="Machine learning is a subset of AI...",
+    answer="ML allows computers to learn from data...",
+    ground_truth="ML is a subset of AI..."
+)
+
+print(results)
+```
+
+## Choosing an Evaluator
+
+### Basic Evaluator (RAGEvaluator)
+
+**Use when:**
+- You want fast, rule-based evaluation
+- No external API dependencies are desired
+- You need reproducible, deterministic scores
+- Cost is a concern (no API costs)
+
+**Pros:**
+- No API key required
+- Fast execution
+- No external dependencies
+- Deterministic results
+
+**Cons:**
+- Less nuanced evaluation
+- May miss semantic similarities
+- Keyword-based approach has limitations
+
+### Ragas Evaluator (RagasEvaluator)
+
+**Use when:**
+- You need sophisticated, LLM-based evaluation
+- Semantic understanding is important
+- You want state-of-the-art evaluation metrics
+- You have an OpenAI API key
+
+**Pros:**
+- More accurate and nuanced evaluation
+- Understands semantic similarity
+- Detects hallucinations more effectively
+- State-of-the-art metrics
+
+**Cons:**
+- Requires OpenAI API key
+- Costs money per evaluation
+- Slower than rule-based evaluation
+- Non-deterministic (LLM-based)
+
 ## Evaluation Metrics
 
-### 1. Faithfulness
+### Basic Evaluator Metrics (Rule-based)
+
+#### 1. Faithfulness
 
 **What it measures:** Whether the answer is grounded in the provided context rather than hallucinated.
 
@@ -103,6 +171,86 @@ print(results)
 
 **When to use:** Always use to ensure answers address the user's question.
 
+### Ragas Evaluator Metrics (LLM-based)
+
+The ragas evaluator uses advanced Large Language Models to evaluate RAG systems. These metrics provide more nuanced and accurate assessments compared to rule-based approaches.
+
+#### 1. Faithfulness
+
+**What it measures:** Factual consistency of the answer with the retrieved context.
+
+**How it works:**
+- Uses LLM to extract claims from the answer
+- Verifies each claim against the context using LLM
+- Calculates the ratio of supported claims
+
+**Score interpretation:**
+- 1.0: All claims are factually consistent (excellent)
+- 0.8-0.9: Most claims are supported (very good)
+- 0.6-0.7: Majority supported (good)
+- < 0.6: Significant hallucination issues
+
+**Advantages over basic:** 
+- Understands semantic meaning, not just keywords
+- Better at detecting subtle hallucinations
+- Considers context and nuance
+
+#### 2. Answer Relevancy
+
+**What it measures:** How relevant the answer is to the user's query.
+
+**How it works:**
+- Uses LLM to assess semantic relevance
+- Considers whether answer directly addresses the question
+- Evaluates completeness of the response
+
+**Score interpretation:**
+- 1.0: Perfectly relevant and complete (excellent)
+- 0.8-0.9: Highly relevant (very good)
+- 0.6-0.7: Relevant but may miss some aspects (good)
+- < 0.6: Answer doesn't adequately address query
+
+**Advantages over basic:**
+- Semantic understanding vs keyword matching
+- Detects incomplete or off-topic answers
+- Considers query intent
+
+#### 3. Context Precision
+
+**What it measures:** How relevant the retrieved context is to answering the query.
+
+**How it works:**
+- Uses LLM to evaluate if context contains information needed to answer query
+- Measures signal-to-noise ratio in retrieved context
+- Helps evaluate retrieval quality
+
+**Score interpretation:**
+- 1.0: Context is highly relevant and precise (excellent)
+- 0.8-0.9: Context is relevant (very good)
+- 0.6-0.7: Some relevant information (good)
+- < 0.6: Context contains mostly irrelevant information
+
+**Use case:** Evaluate and improve your retrieval system
+
+#### 4. Context Recall
+
+**What it measures:** Whether all necessary information to answer the query is in the retrieved context.
+
+**How it works:**
+- Compares ground truth answer with retrieved context
+- Uses LLM to check if context contains all required information
+- Identifies gaps in retrieval
+
+**Score interpretation:**
+- 1.0: All necessary information retrieved (excellent)
+- 0.8-0.9: Most information present (very good)
+- 0.6-0.7: Key information present but incomplete (good)
+- < 0.6: Significant information missing
+
+**Note:** Requires ground_truth parameter
+
+**Use case:** Identify if your retrieval system is missing important information
+
 ## Data Preparation
 
 ### Supported Formats
@@ -157,6 +305,8 @@ The loader will use:
 
 ### Single Evaluation
 
+#### Using Basic Evaluator
+
 ```python
 from rag_evaluation import RAGEvaluator
 
@@ -174,9 +324,36 @@ faithfulness_score = results['faithfulness']['score']
 relevance_score = results['relevance']['score']
 ```
 
-### Batch Evaluation
+#### Using Ragas Evaluator
 
 ```python
+from rag_evaluation import RagasEvaluator
+import os
+
+# Set API key (if not already set in environment)
+os.environ['OPENAI_API_KEY'] = 'your-key-here'
+
+evaluator = RagasEvaluator()
+
+results = evaluator.evaluate(
+    query="Your question here",
+    context="Retrieved context here",
+    answer="Generated answer here",
+    ground_truth="Optional reference answer"
+)
+
+# Access scores
+faithfulness_score = results['faithfulness']['score']
+answer_relevancy_score = results['answer_relevancy']['score']
+```
+
+### Batch Evaluation
+
+#### Using Basic Evaluator
+
+```python
+from rag_evaluation import RAGEvaluator
+
 evaluator = RAGEvaluator()
 
 results = evaluator.evaluate_batch(
@@ -190,28 +367,84 @@ results = evaluator.evaluate_batch(
 avg_scores = evaluator.get_average_scores(results)
 ```
 
-### Loading from Files
+#### Using Ragas Evaluator
 
 ```python
-from rag_evaluation import RAGEvaluator
+from rag_evaluation import RagasEvaluator
+
+evaluator = RagasEvaluator()
+
+# Ragas provides progress bar for batch evaluation
+results = evaluator.evaluate_batch(
+    queries=["Q1", "Q2", "Q3"],
+    contexts=["C1", "C2", "C3"],
+    answers=["A1", "A2", "A3"],
+    ground_truths=["GT1", "GT2", "GT3"]
+)
+
+avg_scores = evaluator.get_average_scores(results)
+```
+
+### Loading from Files
+
+Both evaluators work with the same data loading interface:
+
+```python
+from rag_evaluation import RAGEvaluator, RagasEvaluator
 from rag_evaluation.data_ingestion import DataTableLoader
 
 # Load data
 loader = DataTableLoader()
 data = loader.load_for_evaluation('my_data.csv')
 
-# Evaluate
+# Evaluate with basic evaluator
 evaluator = RAGEvaluator()
 results = evaluator.evaluate_batch(**data)
+
+# Or use ragas evaluator
+ragas_evaluator = RagasEvaluator()
+results = ragas_evaluator.evaluate_batch(**data)
 ```
 
 ### Custom Metric Selection
 
+#### Basic Evaluator
+
 ```python
 # Only evaluate faithfulness and relevance
 evaluator = RAGEvaluator(metrics=['faithfulness', 'relevance'])
-
 results = evaluator.evaluate(query, context, answer)
+```
+
+#### Ragas Evaluator
+
+```python
+# Only evaluate specific ragas metrics
+evaluator = RagasEvaluator(metrics=['faithfulness', 'answer_relevancy'])
+results = evaluator.evaluate(query, context, answer)
+```
+
+### Comparing Evaluators
+
+You can use both evaluators to compare results:
+
+```python
+from rag_evaluation import RAGEvaluator, RagasEvaluator
+
+# Prepare data
+query = "What is machine learning?"
+context = "Machine learning is a subset of AI..."
+answer = "ML is a type of AI that learns from data."
+
+# Basic evaluation
+basic_eval = RAGEvaluator()
+basic_results = basic_eval.evaluate(query, context, answer)
+print("Basic scores:", {k: v['score'] for k, v in basic_results.items()})
+
+# Ragas evaluation (requires API key)
+ragas_eval = RagasEvaluator()
+ragas_results = ragas_eval.evaluate(query, context, answer)
+print("Ragas scores:", {k: v['score'] for k, v in ragas_results.items()})
 ```
 
 ## Command-Line Tool
