@@ -1,0 +1,41 @@
+core:
+  logging:
+    version: 1
+    formatters:
+      formatter:
+        format: "[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s"
+    handlers:
+      console:
+        class: "logging.StreamHandler"
+        level: ${LOG_LEVEL:DEBUG}
+        formatter: "formatter"
+        stream: "ext://sys.stderr"
+    root:
+      level: ${LOG_LEVEL:DEBUG}
+      handlers: ["console"]
+
+ai:
+  gemini:
+    model_name: ${AI_GEMINI_MODEL:gemini-1.5-flash}
+    api_key: ${AI_GEMINI_APIKEY}
+  
+
+assistant:
+  k: ${ASSISTANT_K:100}
+  tokens_limit: ${ASSISTANT_TOKENS_LIMIT:2000}
+  score_threshold: ${ASSISTANT_SCORE_THRESHOLD:null}
+  distance_threshold: ${DISTANCE_THRESHOLD:null}
+
+storage:
+    vector:
+      backend: ${STORAGE_VECTOR_BACKEND:chroma}
+      url: ${STORAGE_VECTOR_URL:postgresql+psycopg://root:example@localhost:5432/postgres}
+    memory:
+      url: ${STORAGE_MEMORY_URL:mongodb://root:example@localhost:27017}
+
+app:
+  discord:
+    token: ${APP_DISCORD_TOKEN}
+
+api:
+  port: ${API_PORT:8000}
