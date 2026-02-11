@@ -7,7 +7,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.vectorstores import VectorStore
 
 from src.core.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT
-from src.domain.assistant import Message, SessionId
+from src.domain.assistant import Message, PromptResult, SessionId
 from src.port.assistant import AssistantPort
 
 
