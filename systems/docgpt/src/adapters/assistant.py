@@ -6,7 +6,7 @@ from langchain_classic.memory.chat_memory import BaseChatMemory
 from langchain_core.language_models import BaseChatModel
 from langchain_core.vectorstores import VectorStore
 
-from src.core.prompts import DEFAULT_PROMPT
+from src.core.prompts import CONDENSE_QUESTION_PROMPT, QA_PROMPT
 from src.domain.assistant import Message, SessionId
 from src.port.assistant import AssistantPort
 
@@ -51,11 +51,12 @@ class ConversationalAssistantAdapter(AssistantPort):
 
         qa = ConversationalRetrievalChain.from_llm(
             llm=self._llm,
-            condense_question_prompt=DEFAULT_PROMPT,
+            condense_question_prompt=CONDENSE_QUESTION_PROMPT,
             retriever=self._storage.as_retriever(
                 search_type="similarity",
                 search_kwargs=search_kwargs,
             ),
+            combine_docs_chain_kwargs={"prompt": QA_PROMPT},
             get_chat_history=lambda v: v,
             memory=memory,
             verbose=True,
