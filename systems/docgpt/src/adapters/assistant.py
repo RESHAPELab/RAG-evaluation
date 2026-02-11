@@ -7,7 +7,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.vectorstores import VectorStore
 
 from src.core.prompts import DEFAULT_PROMPT
-from src.domain.assistant import Message, SessionId
+from src.domain.assistant import Message, PromptResult, SessionId
 from src.port.assistant import AssistantPort
 
 
@@ -39,7 +39,7 @@ class ConversationalAssistantAdapter(AssistantPort):
     def clear_history(self, session_id: SessionId) -> None:
         self._get_memory(session_id).clear()
 
-    def prompt(self, message: Message, *, session_id: SessionId | None = None) -> str:
+    def prompt(self, message: Message, *, session_id: SessionId | None = None) -> PromptResult:
         memory = self._get_memory(session_id) if session_id else None
 
         # Build search_kwargs, only include non-None values
@@ -59,6 +59,7 @@ class ConversationalAssistantAdapter(AssistantPort):
             get_chat_history=lambda v: v,
             memory=memory,
             verbose=True,
+            return_source_documents=True,
             # max_tokens_limit disabled due to Gemini API compatibility issue
             # max_tokens_limit=self._tokens_limit,
         )
@@ -68,4 +69,18 @@ class ConversationalAssistantAdapter(AssistantPort):
             qa_params["chat_history"] = ""
 
         response = qa(qa_params)
-        return response["answer"]
+
+        # Extract retrieved context from source documents
+        source_docs = response.get("source_documents", [])
+        retrieved_context = "\n\n---\n\n".join(
+            doc.page_content for doc in source_docs
+        )
+        source_metadata = [
+            doc.metadata for doc in source_docs if hasattr(doc, "metadata")
+        ]
+
+        return PromptResult(
+            answer=response["answer"],
+            retrieved_context=retrieved_context,
+            source_metadata=source_metadata,
+        )

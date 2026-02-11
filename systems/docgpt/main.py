@@ -1,6 +1,7 @@
+import logging
+import os
 from pathlib import Path
 
-import logging
 import pypandoc
 from dependency_injector.wiring import Provide, inject
 from dotenv import load_dotenv
@@ -10,6 +11,7 @@ from langchain_core.vectorstores import VectorStore
 from src.app.api import create_app, run_app
 from src.app.discord import BOT
 from src.core import containers
+from src.core.interaction_logger import init_logger
 from src.domain.content import Content
 from src.port.assistant import AssistantPort
 from src.port.content import ContentPort
@@ -21,14 +23,31 @@ logger = logging.getLogger(__name__)
 def run_terminal(
     chat: AssistantPort = Provide[containers.Settings.assistant.chat],
 ):
+    from src.core.interaction_logger import get_logger
+
     while True:
         question = input("-> **Q**: ")
         if question.lower() in ["q", "quit", "exit"]:
             break
 
-        answer = chat.prompt(question, session_id="cli")
+        result = chat.prompt(question, session_id="cli")
+
+        # Log the interaction
+        interaction_logger = get_logger()
+        if interaction_logger:
+            try:
+                interaction_logger.log(
+                    session_id="cli",
+                    question=question,
+                    answer=result.answer,
+                    retrieved_context=result.retrieved_context,
+                    source_metadata=result.source_metadata,
+                )
+            except Exception:
+                logger.exception("Failed to log interaction")
+
         print(f"**-> Q: {question}\n")
-        print(f"**AI**: {answer}\n")
+        print(f"**AI**: {result.answer}\n")
 
 
 @inject
@@ -52,25 +71,25 @@ def add_documents(
             storage.add_documents([doc])
         except Exception as e:
             fails_count += 1
-            
+
             # Extract file information from metadata
-            metadata = doc.metadata if hasattr(doc, 'metadata') else {}
-            file_name = metadata.get('file_name', 'Unknown')
-            file_path = metadata.get('file_path', metadata.get('source', 'Unknown'))
-            project = metadata.get('project', 'Unknown')
-            source = metadata.get('source', 'Unknown')
-            
+            metadata = doc.metadata if hasattr(doc, "metadata") else {}
+            file_name = metadata.get("file_name", "Unknown")
+            file_path = metadata.get("file_path", metadata.get("source", "Unknown"))
+            project = metadata.get("project", "Unknown")
+            source = metadata.get("source", "Unknown")
+
             # Determine file type from file extension
-            file_type = 'Unknown'
-            if file_name and file_name != 'Unknown':
-                file_type = Path(file_name).suffix or 'No extension'
-            elif file_path and file_path != 'Unknown':
-                file_type = Path(file_path).suffix or 'No extension'
-            
+            file_type = "Unknown"
+            if file_name and file_name != "Unknown":
+                file_type = Path(file_name).suffix or "No extension"
+            elif file_path and file_path != "Unknown":
+                file_type = Path(file_path).suffix or "No extension"
+
             # Get exception details
             exception_type = type(e).__name__
             exception_message = str(e)
-            
+
             # Log detailed error information
             logger.error(
                 f"Failed to ingest file - "
@@ -82,16 +101,18 @@ def add_documents(
                 f"Exception Type: {exception_type}, "
                 f"Reason: {exception_message}"
             )
-            
-            failed_files.append({
-                'file_name': file_name,
-                'file_type': file_type,
-                'file_path': file_path,
-                'project': project,
-                'source': source,
-                'exception_type': exception_type,
-                'reason': exception_message
-            })
+
+            failed_files.append(
+                {
+                    "file_name": file_name,
+                    "file_type": file_type,
+                    "file_path": file_path,
+                    "project": project,
+                    "source": source,
+                    "exception_type": exception_type,
+                    "reason": exception_message,
+                }
+            )
 
     if fails_count:
         logger.warning(f"Total of {fails_count} documents failed to ingest")
@@ -161,9 +182,24 @@ if __name__ == "__main__":
     application = containers.Settings()
     application.config.from_yaml("config.yml", envs_required=True, required=True)
     application.core.init_resources()
-    application.wire(modules=[__name__, "src.app.discord"])
+    application.wire(
+        modules=[
+            __name__,
+            "src.app.discord",
+            "src.app.api.v1.endpoints.assistant",
+        ]
+    )
     set_debug(True)
     set_verbose(True)
+
+    # Initialise the interaction logger — logs go to INTERACTION_LOG_DIR or ./logs
+    log_dir = os.environ.get("INTERACTION_LOG_DIR", "logs")
+    interaction_logger = init_logger(output_dir=log_dir)
+    logger.info(
+        "Interaction logs: CSV=%s, JSONL=%s",
+        interaction_logger.csv_path,
+        interaction_logger.jsonl_path,
+    )
 
     do_ingest, run_api_mode = _parse_args()
 
