@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import logging
 import pypandoc
 from dependency_injector.wiring import Provide, inject
 from dotenv import load_dotenv
@@ -12,6 +13,8 @@ from src.core import containers
 from src.domain.content import Content
 from src.port.assistant import AssistantPort
 from src.port.content import ContentPort
+
+logger = logging.getLogger(__name__)
 
 
 @inject
@@ -42,16 +45,57 @@ def add_documents(
     storage: VectorStore = Provide[containers.Settings.storage.vector_storage],
 ) -> None:
     fails_count = 0
+    failed_files = []
 
     for doc in documents:
         try:
             storage.add_documents([doc])
-        except (Exception,) as e:
+        except Exception as e:
             fails_count += 1
-            print(f"Fail to add document: {e}")
+            
+            # Extract file information from metadata
+            metadata = doc.metadata if hasattr(doc, 'metadata') else {}
+            file_name = metadata.get('file_name', 'Unknown')
+            file_path = metadata.get('file_path', metadata.get('source', 'Unknown'))
+            project = metadata.get('project', 'Unknown')
+            source = metadata.get('source', 'Unknown')
+            
+            # Determine file type from file extension
+            file_type = 'Unknown'
+            if file_name and file_name != 'Unknown':
+                file_type = Path(file_name).suffix or 'No extension'
+            elif file_path and file_path != 'Unknown':
+                file_type = Path(file_path).suffix or 'No extension'
+            
+            # Get exception details
+            exception_type = type(e).__name__
+            exception_message = str(e)
+            
+            # Log detailed error information
+            logger.error(
+                f"Failed to ingest file - "
+                f"File Name: {file_name}, "
+                f"File Type: {file_type}, "
+                f"File Path: {file_path}, "
+                f"Project: {project}, "
+                f"Source: {source}, "
+                f"Exception Type: {exception_type}, "
+                f"Reason: {exception_message}"
+            )
+            
+            failed_files.append({
+                'file_name': file_name,
+                'file_type': file_type,
+                'file_path': file_path,
+                'project': project,
+                'source': source,
+                'exception_type': exception_type,
+                'reason': exception_message
+            })
 
     if fails_count:
-        print(f"{fails_count} documents failed to add")
+        logger.warning(f"Total of {fails_count} documents failed to ingest")
+        logger.info(f"Failed files summary: {failed_files}")
 
 
 @inject
