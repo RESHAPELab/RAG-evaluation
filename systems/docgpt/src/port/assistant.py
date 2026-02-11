@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.domain.assistant import Message, SessionId
+from src.domain.assistant import Message, PromptResult, SessionId
 
 
 class AssistantPort(ABC):
@@ -14,5 +14,5 @@ class AssistantPort(ABC):
         message: Message,
         *,
         session_id: SessionId | None = None,
-    ) -> Message:
+    ) -> PromptResult:
         ...
