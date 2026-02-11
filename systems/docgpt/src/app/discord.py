@@ -5,9 +5,12 @@ from dependency_injector.wiring import Provide, inject
 from langchain_text_splitters import MarkdownTextSplitter
 
 from src.core.containers import Settings
+from src.core.interaction_logger import get_logger
 from src.port.assistant import AssistantPort
 
 __all__ = ("BOT",)
+
+log = logging.getLogger(__name__)
 
 # Configure intents to allow fetching thread members
 intents = discord.Intents.default()
@@ -21,7 +24,6 @@ MAX_MESSAGE_LEN = 2000
 
 @BOT.event
 async def on_ready():
-    log = logging.getLogger(__name__)
     user = BOT.user
     if user is None:
         raise Exception("User not logged")
@@ -121,28 +123,43 @@ async def on_message(
     user_message = await channel.fetch_message(message.id)
     message_content = user_message.clean_content
 
-    response = assistant.prompt(message_content, session_id=str(channel.id))
+    result = assistant.prompt(message_content, session_id=str(channel.id))
+
+    # Log the interaction (question, retrieved context, answer)
+    interaction_logger = get_logger()
+    if interaction_logger:
+        try:
+            interaction_logger.log(
+                session_id=str(channel.id),
+                question=message_content,
+                answer=result.answer,
+                retrieved_context=result.retrieved_context,
+                source_metadata=result.source_metadata,
+            )
+        except Exception:
+            log.exception("Failed to log interaction")
+
     response_chunks = MarkdownTextSplitter(
         chunk_size=MAX_MESSAGE_LEN,
         chunk_overlap=0,
         strip_whitespace=False,
         keep_separator=True,
         add_start_index=True,
-    ).split_text(response)
+    ).split_text(result.answer)
 
     for reply in response_chunks:
         await user_message.reply(reply)
 
     if channel.name.lower() == NEW_THREAD_NAME.lower():
-        title = assistant.prompt(
+        title_result = assistant.prompt(
             f"""Create a short raw string title for this history: 
             
             - question:
             {message_content}
             
             - answer:
-            {response}
+            {result.answer}
             
             title:"""
         )
-        await channel.edit(name=title)
+        await channel.edit(name=title_result.answer)
